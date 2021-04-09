@@ -1,0 +1,21 @@
+# PyTorch
+https://pytorch.org/docs/stable/nn.html?highlight=layers#recurrent-layers
+https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
+https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose1d.html
+https://pytorch.org/docs/stable/generated/torch.nn.InstanceNorm1d.html
+https://discuss.pytorch.org/t/save-a-tensor-to-file/37136
+
+# Python
+https://docs.python.org/3/library/glob.html
+
+# TorchAudio
+https://pytorch.org/tutorials/beginner/audio_preprocessing_tutorial.html#audio-i-o
+https://pytorch.org/audio/stable/transforms.html
+
+# Misc
+https://stackoverflow.com/questions/42480111/model-summary-in-pytorch
+https://stackoverflow.com/questions/10357992/how-to-generate-audio-from-a-numpy-array/37423879
+https://stackoverflow.com/questions/60421630/pytorch-tensor-save-produces-huge-files-for-small-tensors-from-mnist
+
+# Reference implementation
+https://github.com/yunjey/StarGAN
