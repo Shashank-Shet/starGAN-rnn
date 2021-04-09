@@ -9,14 +9,15 @@ class ResidualBlock(nn.Module):
     def __init__(self, dim_in, dim_out):
         super(ResidualBlock, self).__init__()
         self.main = nn.Sequential(
-            nn.Conv2d(dim_in, dim_out, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.InstanceNorm2d(dim_out, affine=True, track_running_stats=True),
+            nn.Conv1d(dim_in, dim_out, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.InstanceNorm1d(dim_out, affine=True, track_running_stats=True),
             nn.ReLU(inplace=True),
-            nn.Conv2d(dim_out, dim_out, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.InstanceNorm2d(dim_out, affine=True, track_running_stats=True))
+            nn.Conv1d(dim_out, dim_out, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.InstanceNorm1d(dim_out, affine=True, track_running_stats=True))
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        return x + self.main(x)
+        return self.relu(x + self.main(x))
 
 
 class Generator(nn.Module):
@@ -24,31 +25,39 @@ class Generator(nn.Module):
     def __init__(self, conv_dim=64, c_dim=5, repeat_num=6):
         super(Generator, self).__init__()
 
+        WINDOW_SIZE = 201
+        WINDOW_STRIDE = 50
         layers = []
-        layers.append(nn.Conv2d(3+c_dim, conv_dim, kernel_size=7, stride=1, padding=3, bias=False))
-        layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
+        layers.append(nn.Conv1d(2, conv_dim, kernel_size=WINDOW_SIZE, stride=1, padding=WINDOW_SIZE//2, bias=False))
+        layers.append(nn.InstanceNorm1d(conv_dim, affine=True, track_running_stats=True))
         layers.append(nn.ReLU(inplace=True))
 
         # Down-sampling layers.
         curr_dim = conv_dim
-        for i in range(2):
-            layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1, bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
-            curr_dim = curr_dim * 2
+        layers.append(nn.Conv1d(curr_dim, curr_dim*2, kernel_size=WINDOW_SIZE, stride=WINDOW_STRIDE, padding=WINDOW_SIZE//2, bias=False))
+        layers.append(nn.InstanceNorm1d(curr_dim*2, affine=True, track_running_stats=True))
+        layers.append(nn.ReLU(inplace=True))
+        curr_dim *= 2
+        layers.append(nn.Conv1d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1, bias=False))
+        layers.append(nn.InstanceNorm1d(curr_dim*2, affine=True, track_running_stats=True))
+        layers.append(nn.ReLU(inplace=True))
+        curr_dim *= 2
 
         # Bottleneck layers.
         for i in range(repeat_num):
             layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
 
         # Up-sampling layers.
-        for i in range(2):
-            layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
-            curr_dim = curr_dim // 2
+        layers.append(nn.ConvTranspose1d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
+        layers.append(nn.InstanceNorm1d(curr_dim//2, affine=True, track_running_stats=True))
+        layers.append(nn.ReLU(inplace=True))
+        curr_dim = curr_dim // 2
+        layers.append(nn.ConvTranspose1d(curr_dim, curr_dim//2, kernel_size=WINDOW_SIZE, stride=WINDOW_STRIDE, padding=76, output_padding=1, bias=False))
+        layers.append(nn.InstanceNorm1d(curr_dim//2, affine=True, track_running_stats=True))
+        layers.append(nn.ReLU(inplace=True))
+        curr_dim = curr_dim // 2
 
-        layers.append(nn.Conv2d(curr_dim, 3, kernel_size=7, stride=1, padding=3, bias=False))
+        layers.append(nn.Conv2d(curr_dim, 2, kernel_size=WINDOW_SIZE, stride=1, padding=WINDOW_SIZE//2, bias=False))
         layers.append(nn.Tanh())
         self.main = nn.Sequential(*layers)
 
@@ -57,7 +66,7 @@ class Generator(nn.Module):
         # Note that this type of label conditioning does not work at all if we use reflection padding in Conv2d.
         # This is because instance normalization ignores the shifting (or bias) effect.
         c = c.view(c.size(0), c.size(1), 1, 1)
-        c = c.repeat(1, 1, x.size(2), x.size(3))
+        c = c.repeat(1, 1, x.size(2))
         x = torch.cat([x, c], dim=1)
         return self.main(x)
 
