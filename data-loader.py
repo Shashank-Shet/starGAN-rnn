@@ -31,6 +31,14 @@ NUM_FILES_PER_INSTRUMENT = [
 ]
 
 
+def normalize(data):
+    data = data.type(torch.FloatTensor)
+    mean = data.mean(dim=2).unsqueeze(2)
+    std = data.std(dim=2).unsqueeze(2)
+    std[std == 0] = 1
+    data = (data - mean) / std
+    return data
+
 class DataSource:
 
     def __init__(self, stop_iter=302):
@@ -46,6 +54,7 @@ class DataSource:
         for instrument, index in zip(INSTRUMENTS, file_indices):
             temp = torch.tensor(INSTRUMENT_LABELS[instrument])
             data = torch.load(f"./dataset-preprocessed/{instrument}/{instrument}_{index}.pt")
+            data = normalize(data)
             labels = temp.repeat(data.shape[0])
             x_tensor_list.append(data)
             y_tensor_list.append(labels)
