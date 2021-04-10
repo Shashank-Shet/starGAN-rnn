@@ -3,7 +3,10 @@ https://pytorch.org/docs/stable/nn.html?highlight=layers#recurrent-layers
 https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
 https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose1d.html
 https://pytorch.org/docs/stable/generated/torch.nn.InstanceNorm1d.html
+https://pytorch.org/docs/master/nn.functional.html#torch.nn.functional.binary_cross_entropy_with_logits
+https://pytorch.org/docs/master/generated/torch.nn.functional.cross_entropy.html#torch.nn.functional.cross_entropy
 https://discuss.pytorch.org/t/save-a-tensor-to-file/37136
+https://pytorch.org/tutorials/beginner/saving_loading_models.html
 
 # Python
 https://docs.python.org/3/library/glob.html
@@ -16,6 +19,9 @@ https://pytorch.org/audio/stable/transforms.html
 https://stackoverflow.com/questions/42480111/model-summary-in-pytorch
 https://stackoverflow.com/questions/10357992/how-to-generate-audio-from-a-numpy-array/37423879
 https://stackoverflow.com/questions/60421630/pytorch-tensor-save-produces-huge-files-for-small-tensors-from-mnist
+https://stackoverflow.com/questions/40255096/next-in-generators-and-iterators-and-what-is-a-method-wrapper
+https://python.land/deep-dives/python-iterator
+https://pytorch.org/docs/stable/data.html
 
 # Reference implementation
 https://github.com/yunjey/StarGAN
