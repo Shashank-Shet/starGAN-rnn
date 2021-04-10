@@ -11,6 +11,8 @@ import datetime
 
 DATASET_PATH = "./dataset-preprocessed/"
 
+MODEL_SAVE_PATH = "./"
+
 INSTRUMENTS = [
     "Bansuri",
     "Shehnai",
@@ -135,10 +137,17 @@ class Solver(object):
     def restore_model(self, resume_iters):
         """Restore the trained generator and discriminator."""
         print('Loading the trained models from step {}...'.format(resume_iters))
-        G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
-        D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
-        self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
-        self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
+        checkpoints = torch.load(MODEL_SAVE_PATH)
+        self.G.load_state_dict(checkpoints['G-model'])
+        self.D.load_state_dict(checkpoints['D-model'])
+        self.g_optimizer.load_state_dict(checkpoints['G-optim'])
+        self.d_optimizer.load_state_dict(checkpoints['D-optim'])
+        
+        # G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
+        # D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
+
+        # self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
+        # self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
 
     def build_tensorboard(self):
         """Build a tensorboard logger."""
@@ -363,11 +372,19 @@ class Solver(object):
 
             # Save model checkpoints.
             if (i+1) % self.model_save_step == 0:
-                G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
-                D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
-                torch.save(self.G.state_dict(), G_path)
-                torch.save(self.D.state_dict(), D_path)
-                print('Saved model checkpoints into {}...'.format(self.model_save_dir))
+                torch.save({
+                    'epoch'   : i+1,
+                    'G-model' : self.G.state_dict(),
+                    'D-model' : self.D.state_dict(),
+                    'G-optim' : self.g_optimizer.state_dict(),
+                    'D-optim' : self.d_optimizer.state_dict(),
+                }, MODEL_SAVE_PATH)
+                print(f"Saved model into checkpoints directory: {MODEL_SAVE_PATH}")
+                # G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
+                # D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
+                # torch.save(self.G.state_dict(), G_path)
+                # torch.save(self.D.state_dict(), D_path)
+                # print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
             # Decay learning rates.
             if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
