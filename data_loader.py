@@ -3,32 +3,7 @@ import torch
 import torch.nn.functional as nn
 import numpy as np
 from torch.utils.data import IterableDataset
-
-DATASET_PATH = "./dataset-preprocessed/"
-
-INSTRUMENTS = [
-    "Bansuri",
-    "Shehnai",
-    "Santoor",
-    "Sarod",
-    "Sitar"
-]
-
-INSTRUMENT_LABELS = {
-    "Bansuri" : 0,
-    "Shehnai" : 1,
-    "Santoor" : 2,
-    "Sarod"   : 3,
-    "Sitar"   : 4
-}
-
-NUM_FILES_PER_INSTRUMENT = [
-    728,
-    302,
-    479,
-    456,
-    1291
-]
+from __init__ import DATASET_PATH, INSTRUMENTS, INSTRUMENT_LABELS, NUM_FILES_PER_INSTRUMENT
 
 
 def normalize(data):

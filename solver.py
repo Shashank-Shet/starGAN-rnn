@@ -1,68 +1,32 @@
 from model import Generator
 from model import Discriminator
 from torch.autograd import Variable
-from torchvision.utils import save_image
 import torch
 import torch.nn.functional as F
 import numpy as np
 import os
 import time
 import datetime
-
-DATASET_PATH = "./dataset-preprocessed/"
-
-MODEL_SAVE_PATH = "./"
-
-INSTRUMENTS = [
-    "Bansuri",
-    "Shehnai",
-    "Santoor",
-    "Sarod",
-    "Sitar"
-]
-
-INSTRUMENT_LABELS = {
-    "Bansuri" : 0,
-    "Shehnai" : 1,
-    "Santoor" : 2,
-    "Sarod"   : 3,
-    "Sitar"   : 4
-}
-
-NUM_FILES_PER_INSTRUMENT = [
-    728,
-    302,
-    479,
-    456,
-    1291
-]
-
+from __init__ import DATASET_PATH, MODEL_SAVE_PATH, INSTRUMENTS, INSTRUMENT_LABELS, NUM_FILES_PER_INSTRUMENT
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
-    def __init__(self, celeba_loader, rafd_loader, config):
+    def __init__(self, dataset_loader, config):
         """Initialize configurations."""
 
         # Data loader.
         # self.celeba_loader = celeba_loader
         # self.rafd_loader = rafd_loader
-
+        self.data_loader = dataset_loader
+        
         # Model configurations.
         self.c_dim = config.c_dim
-        self.c2_dim = config.c2_dim
-        self.image_size = config.image_size
-        self.g_conv_dim = config.g_conv_dim
-        self.d_conv_dim = config.d_conv_dim
-        self.g_repeat_num = config.g_repeat_num
-        self.d_repeat_num = config.d_repeat_num
         self.lambda_cls = config.lambda_cls
         self.lambda_rec = config.lambda_rec
         self.lambda_gp = config.lambda_gp
 
         # Training configurations.
-        self.dataset = config.dataset
-        self.batch_size = config.batch_size
         self.num_iters = config.num_iters
         self.num_iters_decay = config.num_iters_decay
         self.g_lr = config.g_lr
@@ -71,20 +35,8 @@ class Solver(object):
         self.beta1 = config.beta1
         self.beta2 = config.beta2
         self.resume_iters = config.resume_iters
-        self.selected_attrs = config.selected_attrs
 
-        # Test configurations.
-        self.test_iters = config.test_iters
-
-        # Miscellaneous.
-        self.use_tensorboard = config.use_tensorboard
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-        # Directories.
-        self.log_dir = config.log_dir
-        self.sample_dir = config.sample_dir
-        self.model_save_dir = config.model_save_dir
-        self.result_dir = config.result_dir
 
         # Step size.
         self.log_step = config.log_step
@@ -94,25 +46,6 @@ class Solver(object):
 
         # Build the model and tensorboard.
         self.build_model()
-        if self.use_tensorboard:
-            self.build_tensorboard()
-
-    # def build_model(self):
-    #     """Create a generator and a discriminator."""
-    #     if self.dataset in ['CelebA', 'RaFD']:
-    #         self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-    #         self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
-    #     elif self.dataset in ['Both']:
-    #         self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
-    #         self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
-
-    #     self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
-    #     self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
-    #     self.print_network(self.G, 'G')
-    #     self.print_network(self.D, 'D')
-            
-    #     self.G.to(self.device)
-    #     self.D.to(self.device)
 
     def build_model(self):
 
@@ -134,26 +67,15 @@ class Solver(object):
     #     print(name)
     #     print("The number of parameters: {}".format(num_params))
 
-    def restore_model(self, resume_iters):
+    def restore_model(self):
         """Restore the trained generator and discriminator."""
-        print('Loading the trained models from step {}...'.format(resume_iters))
+        print('Loading the trained models')
         checkpoints = torch.load(MODEL_SAVE_PATH)
         self.G.load_state_dict(checkpoints['G-model'])
         self.D.load_state_dict(checkpoints['D-model'])
         self.g_optimizer.load_state_dict(checkpoints['G-optim'])
         self.d_optimizer.load_state_dict(checkpoints['D-optim'])
         
-        # G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
-        # D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
-
-        # self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
-        # self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
-
-    def build_tensorboard(self):
-        """Build a tensorboard logger."""
-        from logger import Logger
-        self.logger = Logger(self.log_dir)
-
     def update_lr(self, g_lr, d_lr):
         """Decay learning rates of the generator and discriminator."""
         for param_group in self.g_optimizer.param_groups:
@@ -218,25 +140,22 @@ class Solver(object):
     #         c_trg_list.append(c_trg.to(self.device))
     #     return c_trg_list
 
-    def classification_loss(self, logit, target, dataset='CelebA'):
+    def classification_loss(self, logit, target):
         """Compute binary or softmax cross entropy loss."""
-        if dataset == 'CelebA':
-            return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
-        elif dataset == 'RaFD':
-            return F.cross_entropy(logit, target)
+        # if dataset == 'CelebA':
+        #     return F.binary_cross_entropy_with_logits(logit, target, size_average=False) / logit.size(0)
+        # elif dataset == 'RaFD':
+        #     return F.cross_entropy(logit, target)
+        return F.cross_entropy(logit, target)
 
     def train(self):
         """Train StarGAN within a single dataset."""
         # Set data loader.
-        if self.dataset == 'CelebA':
-            data_loader = self.celeba_loader
-        elif self.dataset == 'RaFD':
-            data_loader = self.rafd_loader
-
+        
         # Fetch fixed inputs for debugging.
-        data_iter = iter(data_loader)
-        x_fixed, c_org = next(data_iter)
-        x_fixed = x_fixed.to(self.device)
+        data_iter = iter(self.data_loader)
+        # x_fixed, c_org = next(data_iter)
+        # x_fixed = x_fixed.to(self.device)
 
         # c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
@@ -247,8 +166,8 @@ class Solver(object):
         # Start training from scratch or resume training.
         start_iters = 0
         if self.resume_iters:
-            start_iters = self.resume_iters
-            self.restore_model(self.resume_iters)
+            start_iters = self.restore_model()
+            
 
         # Start training.
         print('Start training...')
@@ -262,7 +181,7 @@ class Solver(object):
             # Fetch real images and labels.
             try:
                 x_real, label_org = next(data_iter)
-            except:
+            except StopIteration:
                 data_iter = iter(data_loader)
                 x_real, label_org = next(data_iter)
 
@@ -289,7 +208,8 @@ class Solver(object):
             # Compute loss with real images.
             out_src, out_cls = self.D(x_real)
             d_loss_real = - torch.mean(out_src)
-            d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
+            d_loss_cls = self.classification_loss(out_cls, label_org)
+            # d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
 
             # Compute loss with fake images.
             x_fake = self.G(x_real, c_trg)
@@ -325,7 +245,8 @@ class Solver(object):
                 x_fake = self.G(x_real, c_trg)
                 out_src, out_cls = self.D(x_fake)
                 g_loss_fake = - torch.mean(out_src)
-                g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
+                g_loss_cls = self.classification_loss(out_cls, label_trg)
+                # g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
                 # Target-to-original domain.
                 x_reconst = self.G(x_fake, c_org)
@@ -350,9 +271,9 @@ class Solver(object):
             if (i+1) % self.log_step == 0:
                 et = time.time() - start_time
                 et = str(datetime.timedelta(seconds=et))[:-7]
-                log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
+                log = f"Elapsed [{et}], Iteration [{i+1}/{self.num_iters}]"
                 for tag, value in loss.items():
-                    log += ", {}: {:.4f}".format(tag, value)
+                    log += f", {tag}: {value:.4f}"
                 print(log)
 
                 if self.use_tensorboard:
@@ -380,11 +301,6 @@ class Solver(object):
                     'D-optim' : self.d_optimizer.state_dict(),
                 }, MODEL_SAVE_PATH)
                 print(f"Saved model into checkpoints directory: {MODEL_SAVE_PATH}")
-                # G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
-                # D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
-                # torch.save(self.G.state_dict(), G_path)
-                # torch.save(self.D.state_dict(), D_path)
-                # print('Saved model checkpoints into {}...'.format(self.model_save_dir))
 
             # Decay learning rates.
             if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
@@ -393,7 +309,7 @@ class Solver(object):
                 self.update_lr(g_lr, d_lr)
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
-
+# TO BE REMOVED. TESTING SCRIPT WILL  BE SEPARATE
     def test(self):
         """Translate images using StarGAN trained on a single dataset."""
         # Load the trained generator.

@@ -3,3 +3,4 @@ dataset
 *~
 *.pt
 save_file
+*.tar.gz
