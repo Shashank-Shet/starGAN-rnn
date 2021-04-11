@@ -28,7 +28,7 @@ class DataSource:
         y_tensor_list = []
         for instrument, index in zip(INSTRUMENTS, file_indices):
             temp = torch.tensor(INSTRUMENT_LABELS[instrument])
-            data = torch.load(f"./dataset-preprocessed/{instrument}/{instrument}_{index}.pt")
+            data = torch.load(f"{DATASET_PATH}{instrument}/{instrument}_{index}.pt")
             data = normalize(data)
             labels = temp.repeat(data.shape[0])
             x_tensor_list.append(data)

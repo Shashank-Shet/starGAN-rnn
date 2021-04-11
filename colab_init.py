@@ -1,6 +1,6 @@
-DATASET_PATH = "./drive/MyDrive/cs\ 753/dataset-preprocessed/"
+DATASET_PATH = "./drive/MyDrive/cs753 dataset/dataset-preprocessed/"
 
-MODEL_SAVE_PATH = "./drive/MyDrive/cs\ 753/"
+MODEL_SAVE_PATH = "./drive/MyDrive/cs753 dataset/"
 
 INSTRUMENTS = [
     "Bansuri",
