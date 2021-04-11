@@ -70,7 +70,7 @@ class Solver(object):
     def restore_model(self):
         """Restore the trained generator and discriminator."""
         print('Loading the trained models')
-        checkpoints = torch.load(MODEL_SAVE_PATH)
+        checkpoints = torch.load(f"{MODEL_SAVE_PATH}save_file.pt")
         self.G.load_state_dict(checkpoints['G-model'])
         self.D.load_state_dict(checkpoints['D-model'])
         self.g_optimizer.load_state_dict(checkpoints['G-optim'])
@@ -182,7 +182,7 @@ class Solver(object):
             try:
                 x_real, label_org = next(data_iter)
             except StopIteration:
-                data_iter = iter(data_loader)
+                data_iter = iter(self.data_loader)
                 x_real, label_org = next(data_iter)
 
             x_real = x_real.squeeze(0)
@@ -276,9 +276,9 @@ class Solver(object):
                     log += f", {tag}: {value:.4f}"
                 print(log)
 
-                if self.use_tensorboard:
-                    for tag, value in loss.items():
-                        self.logger.scalar_summary(tag, value, i+1)
+                # if self.use_tensorboard:
+                #     for tag, value in loss.items():
+                #         self.logger.scalar_summary(tag, value, i+1)
 
             # # Translate fixed images for debugging.
             # if (i+1) % self.sample_step == 0:
@@ -299,7 +299,7 @@ class Solver(object):
                     'D-model' : self.D.state_dict(),
                     'G-optim' : self.g_optimizer.state_dict(),
                     'D-optim' : self.d_optimizer.state_dict(),
-                }, MODEL_SAVE_PATH)
+                }, f"{MODEL_SAVE_PATH}save_file.pt")
                 print(f"Saved model into checkpoints directory: {MODEL_SAVE_PATH}")
 
             # Decay learning rates.
