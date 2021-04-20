@@ -148,6 +148,16 @@ class Solver(object):
         #     return F.cross_entropy(logit, target)
         return F.cross_entropy(logit, target)
 
+
+    def discriminator_loss(self, pred, real=True):
+        y_hat = F.sigmoid(pred)
+        if real is True:
+            target = torch.ones(y_hat.shape[0])
+        else:
+            target = torch.zeros(y_hat.shape[0])
+        return F.mse_loss(y_hat, target)
+
+    
     def train(self):
         """Train StarGAN within a single dataset."""
         # Set data loader.
@@ -207,14 +217,20 @@ class Solver(object):
 
             # Compute loss with real images.
             out_src, out_cls = self.D(x_real)
+            d_loss_cls  = self.classification_loss(out_cls, label_org)
             d_loss_real = - torch.mean(out_src)
-            d_loss_cls = self.classification_loss(out_cls, label_org)
+            if (i+1) % self.log_step == 0:
+                d_loss_real_sigmoid = self.discriminator_loss(out_src, real=True)
+            # d_loss_real =  self.discriminator_loss(out_src, real=True)
             # d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
-
+            
             # Compute loss with fake images.
             x_fake = self.G(x_real, c_trg)
             out_src, out_cls = self.D(x_fake.detach())
             d_loss_fake = torch.mean(out_src)
+            if (i+1) % self.log_step == 0:
+                d_loss_fake_sigmoid = self.discriminator_loss(out_src, real=False)
+            # d_loss_fake = self.discriminator_loss(out_src, real=False)
 
             # Compute loss for gradient penalty.
             # alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
@@ -235,6 +251,7 @@ class Solver(object):
             loss['D/loss_fake'] = d_loss_fake.item()
             loss['D/loss_cls'] = d_loss_cls.item()
             loss['D/loss_gp'] = d_loss_gp.item()
+
             
             # =================================================================================== #
             #                               3. Train the generator                                #
@@ -248,6 +265,10 @@ class Solver(object):
                 g_loss_cls = self.classification_loss(out_cls, label_trg)
                 # g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
+                if (i+1) % self.log_step == 0:
+                    g_loss_fool = self.discriminator_loss(out_src, real=True)
+
+                
                 # Target-to-original domain.
                 x_reconst = self.G(x_fake, c_org)
                 g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
@@ -273,6 +294,12 @@ class Solver(object):
                 et = str(datetime.timedelta(seconds=et))[:-7]
                 log = f"Elapsed [{et}], Iteration [{i+1}/{self.num_iters}]"
                 for tag, value in loss.items():
+                    if tag == 'D/loss_real':
+                        value = d_loss_real_sigmoid.item()
+                    if tag == 'D/loss_fake':
+                        value = d_loss_fake_sigmoid.item()
+                    if tag == 'G/loss_fake':
+                        value = g_loss_fool.item()
                     log += f", {tag}: {value:.4f}"
                 print(log)
 
